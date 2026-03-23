@@ -1,0 +1,17 @@
+# 1. Chặn thư mục dữ liệu (nếu folder tên là data)
+data/
+
+# 2. Chặn file nén dataset (dùng tên file trực tiếp)
+flickr8k.zip
+
+# 3. Chặn thư mục huấn luyện và log của Weights & Biases (wandb)
+training/wandb/
+
+# 4. Các file model nặng (nếu có phát sinh sau này)
+*.h5
+*.pth
+*.pkl
+
+# 5. File tạm của Python và Notebook
+__pycache__/
+.ipynb_checkpoints/
