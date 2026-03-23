@@ -14,10 +14,11 @@
   "val_split": 0.2,
   "num_workers": 2,
   "seed": 42,
-  "resume": "latest",
+  "resume": "none",
   "wandb_mode": "online",
   "wandb_project": "image-captioning",
   "wandb_name": "flickr8k-exp-001",
   "wandb_notes": "baseline on kaggle with split 0.2",
+  "upload_checkpoints": true,
   "log_images": true
 }

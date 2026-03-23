@@ -128,9 +128,12 @@ def _build_parser(config_defaults: dict):
     parser.add_argument("--wandb-project", type=str, default=_cfg_get(config_defaults, "wandb_project", "image-captioning"))
     parser.add_argument("--wandb-name", type=str, default=_cfg_get(config_defaults, "wandb_name", ""), help="Ten run hien thi tren WandB")
     parser.add_argument("--wandb-notes", type=str, default=_cfg_get(config_defaults, "wandb_notes", ""), help="Ghi chu cho run tren WandB")
+    parser.add_argument("--upload-checkpoints", dest="upload_checkpoints", action="store_true", help="Upload checkpoint moi epoch len WandB Artifacts")
+    parser.add_argument("--no-upload-checkpoints", dest="upload_checkpoints", action="store_false", help="Khong upload checkpoint len WandB")
     parser.add_argument("--log-images", dest="log_images", action="store_true", help="Bat log sample images len WandB")
     parser.add_argument("--no-log-images", dest="log_images", action="store_false", help="Tat log sample images len WandB")
     parser.set_defaults(log_images=bool(_cfg_get(config_defaults, "log_images", False)))
+    parser.set_defaults(upload_checkpoints=bool(_cfg_get(config_defaults, "upload_checkpoints", True)))
     return parser.parse_args()
 
 
@@ -247,6 +250,8 @@ def main():
         "wandb_project": args.wandb_project,
         "wandb_name": args.wandb_name,
         "wandb_notes": args.wandb_notes,
+        "upload_checkpoints": args.upload_checkpoints,
+        "log_images": args.log_images,
     }
 
     config_path = output_dir / "train_config.json"
@@ -279,6 +284,7 @@ def main():
         wandb_name=args.wandb_name,
         wandb_notes=args.wandb_notes,
         log_images=args.log_images,
+        upload_checkpoints_to_wandb=args.upload_checkpoints,
         metrics_csv_path=str(output_dir / "metrics.csv"),
     )
 

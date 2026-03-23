@@ -91,14 +91,29 @@ def _log_sample_images(run, loader, step, max_images=4):
         images, _ = next(iter(loader))
         n = min(max_images, images.size(0))
         preview = []
+        mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+        std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
         for i in range(n):
             # Convert CHW tensor to HWC for WandB image logging.
-            img = images[i].detach().cpu().permute(1, 2, 0)
+            img = images[i].detach().cpu()
+            img = img * std + mean  # de-normalize to viewable RGB range
+            img = img.permute(1, 2, 0)
             img = torch.clamp(img, 0.0, 1.0).numpy()
             preview.append(wandb.Image(img, caption=f"sample_{i}"))
-        wandb.log({"samples": preview}, step=step)
+        wandb.log({"train_samples": preview}, step=step)
     except Exception as e:
         print(f"[wandb] Skip image logging: {e}")
+
+
+def _upload_checkpoint_artifact(run, ckpt_path, epoch):
+    if run is None:
+        return
+    try:
+        artifact = wandb.Artifact(name=f"checkpoint-epoch-{epoch+1}", type="model")
+        artifact.add_file(ckpt_path)
+        run.log_artifact(artifact, aliases=["latest", f"epoch_{epoch+1}"])
+    except Exception as e:
+        print(f"[wandb] Skip checkpoint artifact upload: {e}")
 
 
 def train_model(
@@ -119,12 +134,19 @@ def train_model(
     wandb_name="",
     wandb_notes="",
     log_images=True,
+    upload_checkpoints_to_wandb=True,
     metrics_csv_path=None,
 ):
     start_epoch = 0
     if resume_path:
         start_epoch = _load_checkpoint(
             resume_path, model, optimizer, scheduler, device
+        )
+
+    if start_epoch >= epochs:
+        raise ValueError(
+            f"Khong co epoch nao de train: start_epoch={start_epoch}, epochs={epochs}. "
+            "Tang --epochs hoac dat --resume none de train lai tu dau."
         )
 
     run = None
@@ -205,6 +227,10 @@ def train_model(
         _save_checkpoint(
             ckpt_path, model, optimizer, scheduler, epoch, config
         )
+        print(f"[checkpoint] Saved: {ckpt_path}")
+
+        if upload_checkpoints_to_wandb and run is not None:
+            _upload_checkpoint_artifact(run, ckpt_path, epoch)
 
         if metrics_csv_path:
             os.makedirs(os.path.dirname(metrics_csv_path), exist_ok=True)
