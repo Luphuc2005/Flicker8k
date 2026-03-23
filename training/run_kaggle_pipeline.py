@@ -1,4 +1,5 @@
 import argparse
+from datetime import datetime
 import glob
 import json
 import os
@@ -77,27 +78,53 @@ def get_resume_path(resume_mode: str, checkpoint_dir: str):
     return ckpts[-1] if ckpts else None
 
 
-def parse_args():
+def _cfg_get(cfg: dict, key: str, default):
+    return cfg.get(key, cfg.get(key.replace("_", "-"), default))
+
+
+def _build_parser(config_defaults: dict):
     parser = argparse.ArgumentParser(description="Run full Flickr8k training pipeline for Kaggle")
-    parser.add_argument("--data-dir", type=str, default="", help="Folder chua Images va captions.txt")
-    parser.add_argument("--image-dir", type=str, default="", help="Duong dan thu muc Images")
-    parser.add_argument("--captions-file", type=str, default="", help="Duong dan captions.txt")
-    parser.add_argument("--output-dir", type=str, default="/kaggle/working/outputs")
-    parser.add_argument("--epochs", type=int, default=10)
-    parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--lr", type=float, default=1e-4)
-    parser.add_argument("--embed-dim", type=int, default=512)
-    parser.add_argument("--num-head", type=int, default=2)
-    parser.add_argument("--ff-dim", type=int, default=512)
-    parser.add_argument("--freq-threshold", type=int, default=5)
-    parser.add_argument("--val-split", type=float, default=0.2)
-    parser.add_argument("--num-workers", type=int, default=2)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--resume", type=str, default="latest", help="latest | none | /path/to/ckpt.pt")
-    parser.add_argument("--wandb-mode", type=str, default="offline", choices=["offline", "online", "disabled"])
-    parser.add_argument("--wandb-project", type=str, default="image-captioning")
-    parser.add_argument("--log-images", action="store_true")
+    parser.add_argument("--config", type=str, default="", help="Duong dan file JSON chua cau hinh")
+    parser.add_argument("--data-dir", type=str, default=_cfg_get(config_defaults, "data_dir", ""), help="Folder chua Images va captions.txt")
+    parser.add_argument("--image-dir", type=str, default=_cfg_get(config_defaults, "image_dir", ""), help="Duong dan thu muc Images")
+    parser.add_argument("--captions-file", type=str, default=_cfg_get(config_defaults, "captions_file", ""), help="Duong dan captions.txt")
+    parser.add_argument("--output-dir", type=str, default=_cfg_get(config_defaults, "output_dir", "/kaggle/working/outputs"))
+    parser.add_argument("--config-out-dir", type=str, default=_cfg_get(config_defaults, "config_out_dir", ""), help="Thu muc luu config da resolve cho moi run")
+    parser.add_argument("--epochs", type=int, default=_cfg_get(config_defaults, "epochs", 10))
+    parser.add_argument("--batch-size", type=int, default=_cfg_get(config_defaults, "batch_size", 32))
+    parser.add_argument("--lr", type=float, default=_cfg_get(config_defaults, "lr", 1e-4))
+    parser.add_argument("--embed-dim", type=int, default=_cfg_get(config_defaults, "embed_dim", 512))
+    parser.add_argument("--num-head", type=int, default=_cfg_get(config_defaults, "num_head", 2))
+    parser.add_argument("--ff-dim", type=int, default=_cfg_get(config_defaults, "ff_dim", 512))
+    parser.add_argument("--freq-threshold", type=int, default=_cfg_get(config_defaults, "freq_threshold", 5))
+    parser.add_argument("--val-split", type=float, default=_cfg_get(config_defaults, "val_split", 0.2))
+    parser.add_argument("--num-workers", type=int, default=_cfg_get(config_defaults, "num_workers", 2))
+    parser.add_argument("--seed", type=int, default=_cfg_get(config_defaults, "seed", 42))
+    parser.add_argument("--resume", type=str, default=_cfg_get(config_defaults, "resume", "latest"), help="latest | none | /path/to/ckpt.pt")
+    parser.add_argument("--wandb-mode", type=str, default=_cfg_get(config_defaults, "wandb_mode", "offline"), choices=["offline", "online", "disabled"])
+    parser.add_argument("--wandb-project", type=str, default=_cfg_get(config_defaults, "wandb_project", "image-captioning"))
+    parser.add_argument("--wandb-name", type=str, default=_cfg_get(config_defaults, "wandb_name", ""), help="Ten run hien thi tren WandB")
+    parser.add_argument("--wandb-notes", type=str, default=_cfg_get(config_defaults, "wandb_notes", ""), help="Ghi chu cho run tren WandB")
+    parser.add_argument("--log-images", dest="log_images", action="store_true", help="Bat log sample images len WandB")
+    parser.add_argument("--no-log-images", dest="log_images", action="store_false", help="Tat log sample images len WandB")
+    parser.set_defaults(log_images=bool(_cfg_get(config_defaults, "log_images", False)))
     return parser.parse_args()
+
+
+def parse_args():
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument("--config", type=str, default="")
+    pre_args, _ = pre_parser.parse_known_args()
+
+    config_defaults = {}
+    if pre_args.config:
+        with open(pre_args.config, "r", encoding="utf-8") as f:
+            loaded = json.load(f)
+            if not isinstance(loaded, dict):
+                raise ValueError("Noi dung file --config phai la JSON object.")
+            config_defaults = loaded
+
+    return _build_parser(config_defaults)
 
 
 def main():
@@ -105,9 +132,11 @@ def main():
     set_seed(args.seed)
 
     output_dir = Path(args.output_dir)
+    config_out_dir = Path(args.config_out_dir) if args.config_out_dir else (output_dir / "configs")
     checkpoint_dir = output_dir / "checkpoints"
     output_dir.mkdir(parents=True, exist_ok=True)
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    config_out_dir.mkdir(parents=True, exist_ok=True)
 
     image_dir, captions_file = resolve_data_paths(args.data_dir, args.image_dir, args.captions_file)
 
@@ -192,10 +221,17 @@ def main():
         "image_dir": image_dir,
         "captions_file": captions_file,
         "wandb_mode": args.wandb_mode,
+        "wandb_project": args.wandb_project,
+        "wandb_name": args.wandb_name,
+        "wandb_notes": args.wandb_notes,
     }
 
     config_path = output_dir / "train_config.json"
     with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2)
+
+    resolved_config_path = config_out_dir / f"run_config_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    with open(resolved_config_path, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2)
 
     resume_path = get_resume_path(args.resume, str(checkpoint_dir))
@@ -217,6 +253,8 @@ def main():
         use_wandb=use_wandb,
         wandb_mode=wandb_mode,
         wandb_project=args.wandb_project,
+        wandb_name=args.wandb_name,
+        wandb_notes=args.wandb_notes,
         log_images=args.log_images,
         metrics_csv_path=str(output_dir / "metrics.csv"),
     )
@@ -230,6 +268,7 @@ def main():
     print(f"- {output_dir / 'metrics.csv'}")
     print(f"- {output_dir / 'history.json'}")
     print(f"- {checkpoint_dir}")
+    print(f"- {resolved_config_path}")
 
 
 if __name__ == "__main__":

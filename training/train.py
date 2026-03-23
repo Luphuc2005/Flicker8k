@@ -116,6 +116,8 @@ def train_model(
     use_wandb=True,
     wandb_mode="offline",
     wandb_project="image-captioning",
+    wandb_name="",
+    wandb_notes="",
     log_images=True,
     metrics_csv_path=None,
 ):
@@ -132,6 +134,8 @@ def train_model(
                 project=wandb_project,
                 config=config,
                 mode=wandb_mode,
+                name=wandb_name or None,
+                notes=wandb_notes or None,
                 settings=wandb.Settings(init_timeout=120),
                 reinit=True,
             )
@@ -145,6 +149,8 @@ def train_model(
                         project=wandb_project,
                         config=config,
                         mode="offline",
+                        name=wandb_name or None,
+                        notes=wandb_notes or None,
                         settings=wandb.Settings(init_timeout=120),
                         reinit=True,
                     )
