@@ -9,13 +9,34 @@ def load_captions(captions_file):
             line=line.strip()
             if len(line)==0:#bỏ qua các dòng trống trong file txt
                 continue
-            img,cap=line.split(",",1)#chia dòng thành 2 phần, dựa trên dấu phẩy. img=tên ảnh, cap là ndung
+
+            # Skip common CSV header lines.
+            lowered = line.lower()
+            if lowered in {"image,caption", "image_name,comment_number,comment"}:
+                continue
+
+            # Support both formats:
+            # 1) captions.txt: image.jpg,caption text
+            # 2) Flickr8k.token.txt: image.jpg#0\tcaption text
+            if "\t" in line:
+                left, cap = line.split("\t", 1)
+                img = left.split("#", 1)[0]
+            elif "," in line:
+                img, cap = line.split(",", 1)
+            else:
+                continue
+
+            img = img.strip()
             cap=cap.lower().strip()
             #strip(): Hàm này dùng để loại bỏ tất cả các ký tự khoảng trắng (bao gồm dấu cách, tab, và ký tự xuống dòng \n) ở hai đầu (đầu và cuối) của một chuỗi. Nó không tác động đến khoảng trắng ở giữa chuỗi.
             cap="<start> " + cap +" <end>"
             if img not in captions_dict:
                 captions_dict[img]=[] #nếu ảnh đã xuất hiện -> tạo 1 ds trống cho nó
             captions_dict[img].append(cap)  # thêm câu mô tả vào ds của ảnh tương ứng
+
+    if not captions_dict:
+        raise ValueError(f"Khong doc duoc caption nao tu file: {captions_file}")
+
     return captions_dict
 
 #"Dọn rác". Kiểm tra xem file ảnh có thực sự tồn tại và có bị hỏng hay không trước khi huấn luyện.

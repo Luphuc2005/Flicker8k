@@ -37,8 +37,25 @@ def set_seed(seed: int) -> None:
 
 
 def resolve_data_paths(data_dir: str, image_dir: str, captions_file: str):
+    # Honor explicit paths only when both actually exist.
     if image_dir and captions_file:
-        return image_dir, captions_file
+        if Path(image_dir).is_dir() and Path(captions_file).is_file():
+            return image_dir, captions_file
+
+        print("[warn] image_dir/captions_file provided but not found, fallback to auto-detect...")
+
+    image_dir_names = {
+        "images",
+        "flickr8k_dataset",
+        "flicker8k_dataset",
+        "flickr8k-images",
+    }
+    caption_patterns = [
+        "captions.txt",
+        "*caption*.txt",
+        "flickr8k.token.txt",
+        "*token*.txt",
+    ]
 
     candidates = []
     if data_dir:
@@ -58,13 +75,19 @@ def resolve_data_paths(data_dir: str, image_dir: str, captions_file: str):
         if (base / "Images").exists() and (base / "captions.txt").exists():
             return str(base / "Images"), str(base / "captions.txt")
 
-        txts = list(base.rglob("captions.txt"))
-        imgs = [p for p in base.rglob("Images") if p.is_dir()]
+        txts = []
+        for pattern in caption_patterns:
+            txts.extend(base.rglob(pattern))
+
+        # Keep unique files and prioritize exact captions.txt first.
+        txts = sorted({p for p in txts if p.is_file()}, key=lambda p: (p.name.lower() != "captions.txt", len(str(p))))
+
+        imgs = [p for p in base.rglob("*") if p.is_dir() and p.name.lower() in image_dir_names]
         if txts and imgs:
             return str(imgs[0]), str(txts[0])
 
     raise FileNotFoundError(
-        "Khong tim thay data. Hay truyen --data-dir hoac --image-dir va --captions-file."
+        "Khong tim thay data/captions. Hay truyen --data-dir hoac --image-dir va --captions-file dung duong dan."
     )
 
 
