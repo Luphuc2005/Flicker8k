@@ -1,7 +1,7 @@
 {
   "data_dir": "",
-  "image_dir": "",
-  "captions_file": "",
+  "image_dir": "/kaggle/input/flickr-8k-dataset/Images",
+  "captions_file": "/kaggle/input/flickr-8k-dataset/captions.txt",
   "output_dir": "/kaggle/working/outputs",
   "config_out_dir": "/kaggle/working/outputs/configs",
   "epochs": 10,
