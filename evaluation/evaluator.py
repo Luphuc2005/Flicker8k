@@ -3,7 +3,7 @@ from tqdm import tqdm
 from PIL import Image
 from torchvision import transforms
 import os
-from .metrics import calculate_metrics
+from evaluation.metrics import calculate_metrics
 
 @torch.no_grad()
 def greedy_decode(model, image, vocab, max_len=20, device="cpu"):
