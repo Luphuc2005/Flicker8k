@@ -17,7 +17,7 @@
   "resume": "none",
   "wandb_mode": "online",
   "wandb_project": "image-captioning",
-  "wandb_name": "flickr8k-exp-002/24032026",
+  "wandb_name": "flickr8k-exp-002/24032026_70_15_15",
   "wandb_notes": "baseline on kaggle with split 0.2",
   "upload_checkpoints": true,
   "log_images": true

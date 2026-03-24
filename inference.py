@@ -59,18 +59,12 @@ def greedy_decode(model, image, vocab, max_len=20, device="cpu"):
     return " ".join(words)
 
 def load_model_and_vocab(checkpoint_path, data_dir, device):
-    # 1. Load Vocab (Xây dựng lại từ data để đảm bảo khớp index)
-    # Trong môi trường thực tế, nên lưu vocab.pkl để load trực tiếp.
-    print("Mô hình đang tải Vocabulary...")
-    image_dir = os.path.join(data_dir, "Images")
-    captions_file = os.path.join(data_dir, "captions.txt")
+    # 1. Load Vocab (Sử dụng hàm get_loaders để khớp 100% với lúc train)
+    from datasets.data_loader import get_loaders
+    print("Mô hình đang tải Vocabulary chuẩn...")
     
-    captions_dict = load_captions(captions_file)
-    # captions_dict = filter_valid_images(image_dir, captions_dict)
-    _, captions_list = flatten_data(image_dir, captions_dict)
-    
-    vocab = Vocabulary(freq_threshold=5) # Đảm bảo threshold giống lúc train
-    vocab.build_vocab(captions_list)
+    # Chỉ lấy vocab, các tham số khác để mặc định
+    _, vocab, _ = get_loaders(data_dir)
     
     # 3. Load Trọng số (Checkpoint)
     print(f"Đang tải trọng số từ: {checkpoint_path}")
@@ -110,7 +104,7 @@ def main():
     # --- CẤU HÌNH ---
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # Thay đổi các đường dẫn này cho đúng với máy của em
-    CHECKPOINT = r"D:\HocTap\NCKH_ThayDoNhuTai\Thực nghiệm\Image_Captioning_Flickr8k\Checkpoints\epoch_10.pt" 
+    CHECKPOINT = r"D:\HocTap\NCKH_ThayDoNhuTai\Thực nghiệm\Image_Captioning_Flickr8k\Checkpoints\epoch_9.pt" 
     DATA_DIR = r"D:\HocTap\NCKH_ThayDoNhuTai\Thực nghiệm\Image_Captioning_Flickr8k\data" 
     IMAGE_PATH = r"D:\HocTap\NCKH_ThayDoNhuTai\Thực nghiệm\Image_Captioning_Flickr8k\data\Images\1000268201_693b08cb0e.jpg" # Một ảnh bất kỳ để test
     

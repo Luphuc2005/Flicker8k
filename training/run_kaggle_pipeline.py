@@ -168,19 +168,25 @@ def main():
     image_dir, captions_file = resolve_data_paths(args.data_dir, args.image_dir, args.captions_file)
 
     # SỬ DỤNG HÀM GET_LOADERS ĐÃ CHUẨN HÓA
-    train_loader, val_loader, vocab, dataset_size, train_size, val_size, all_captions = get_loaders(
+    (train_loader, val_loader, test_loader), vocab, (train_size, val_size, test_size) = get_loaders(
         data_dir=args.data_dir,
-        image_dir=image_dir, # Pass resolved image_dir
-        captions_file=captions_file, # Pass resolved captions_file
+        image_dir=image_dir,
+        captions_file=captions_file,
         batch_size=args.batch_size,
+        train_split=0.7, # Có thể đưa vào args nếu muốn
         val_split=args.val_split,
+        test_split=0.15,
         seed=args.seed,
         freq_threshold=args.freq_threshold,
         num_workers=args.num_workers
     )
+    dataset_size = train_size + val_size + test_size
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    max_len = max(len(vocab.numericalize(c)) + 2 for c in all_captions)
+    # Tính max_len từ tất cả captions (load lại từ file để đảm bảo chính xác)
+    all_captions_dict = load_captions(captions_file)
+    all_caps_list = [c for caps in all_captions_dict.values() for c in caps]
+    max_len = max(len(vocab.numericalize(c)) + 2 for c in all_caps_list)
 
     encoder = CNNEncoder(embed_dim=args.embed_dim)
     trans_enc = TransformerEncoder(embed_dim=args.embed_dim, num_heads=args.num_head)

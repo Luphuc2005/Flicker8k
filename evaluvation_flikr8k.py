@@ -14,59 +14,62 @@ from inference import load_model_and_vocab, greedy_decode
 from datasets.data_loader import get_loaders
 from datasets.preprocessing import load_captions
 
+from config import config
+
 def run_evaluation(checkpoint_path, data_dir):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = config.DEVICE
     
     # 1. Load Model & Vocab
-    # Lưu ý: model_and_vocab sẽ tự động load kiến trúc từ checkpoint
     model, vocab = load_model_and_vocab(checkpoint_path, data_dir, device)
     model.eval()
 
-    # 2. Lấy danh sách ảnh tập Validation (Phải khớp SEED với lúc Train)
-    # Chúng ta dùng chung logic chia từ get_loaders để đảm bảo tính thống nhất
-    print("Đang chuẩn bị dữ liệu tập Test (Validation set)...")
-    captions_file = os.path.join(data_dir, "captions.txt")
-    image_dir = os.path.join(data_dir, "Images")
+    # 2. Lấy DataLoader tập Test chuẩn từ config
+    print("Đang chuẩn bị dữ liệu tập Test (70/15/15 split)...")
+    (train_loader, val_loader, test_loader), _, (n_train, n_val, n_test) = get_loaders(
+        data_dir,
+        train_split=config.TRAIN_SPLIT,
+        val_split=config.VAL_SPLIT,
+        test_split=config.TEST_SPLIT,
+        seed=config.SEED,
+        batch_size=config.BATCH_SIZE,
+        vocab=vocab # Dùng vocab đã load từ checkpoint
+    )
     
-    # Load lại captions chuẩn
-    all_captions = load_captions(captions_file)
-    all_image_names = list(all_captions.keys())
-    
-    import random
-    random.seed(42) # Khớp với seed mặc định lúc train
-    random.shuffle(all_image_names)
-    
-    val_split = 0.2
-    val_size = int(len(all_image_names) * val_split)
-    test_images = all_image_names[:val_size] # Tập này model chưa học
-    
-    print(f"Tổng bộ dữ liệu: {len(all_image_names)} ảnh.")
-    print(f"Số lượng ảnh tập Test: {len(test_images)} ảnh.")
+    print(f"Số lượng ảnh tập Test: {n_test} ảnh.")
 
     gts = {}
     res = {}
     
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ])
-
-    # Giới hạn số lượng ảnh test nếu muốn chạy nhanh (ví dụ test trên 200 ảnh đầu của tập Val)
-    # test_images = test_images[:200] 
-
-    print(f"Đang chạy inference trên {len(test_images)} ảnh...")
+    # Để tính CIDEr/BLEU chuẩn COCO, ta cần tất cả Ground Truth của từng ảnh
+    # Ta load lại captions_dict để lấy đủ 5 câu/ảnh
+    all_captions = load_captions(os.path.join(data_dir, "captions.txt"))
+    
+    # Lấy danh sách image_paths từ test_dataset
+    test_dataset = test_loader.dataset
+    
+    print(f"Đang chạy inference trên {len(test_dataset)} mẫu (captions)...")
+    # Lưu ý: test_dataset có thể chứa nhiều entry cho cùng 1 ảnh nếu ta phẳng hóa.
+    # Nhưng ở bước evaluation này, ta chỉ cần chạy 1 lần cho mỗi ảnh.
+    
+    processed_images = set()
+    
     with torch.no_grad():
-        for img_name in tqdm(test_images):
+        for i in tqdm(range(len(test_dataset))):
+            img_path, _ = test_dataset.img_paths[i], test_dataset.captions[i]
+            img_name = os.path.basename(img_path)
+            
+            if img_name in processed_images:
+                continue
+            
+            processed_images.add(img_name)
             img_id = img_name
             
-            # Ground Truth: Lấy tất cả captions của ảnh này
+            # Ground Truth
             gts[img_id] = [{"caption": c} for c in all_captions[img_name]]
             
-            # Dự đoán từ Model (res)
-            img_path = os.path.join(image_dir, img_name)
-            img = Image.open(img_path).convert("RGB")
-            img_tensor = transform(img).unsqueeze(0).to(device)
+            # Prediction
+            img_tensor, _ = test_dataset[i]
+            img_tensor = img_tensor.unsqueeze(0).to(device)
             
             generated_cap = greedy_decode(model, img_tensor, vocab, device=device)
             res[img_id] = [{"caption": generated_cap}]
@@ -81,7 +84,7 @@ def run_evaluation(checkpoint_path, data_dir):
     print("Đang tính toán các chỉ số...")
     scorers = [
         (Bleu(4), ["Bleu_1", "Bleu_2", "Bleu_3", "Bleu_4"]),
-        # (Meteor(), "METEOR"), # Tạm tắt nếu Java lỗi
+        # (Meteor(), "METEOR"), 
         (Rouge(), "ROUGE_L"),
         (Cider(), "CIDEr")
     ]
@@ -97,12 +100,10 @@ def run_evaluation(checkpoint_path, data_dir):
 
     # 5. In kết quả
     print("\n" + "="*40)
-    print(f"KẾT QUẢ ĐÁNH GIÁ (TRÊN TẬP TEST - {len(test_images)} ẢNH):")
+    print(f"KẾT QUẢ ĐÁNH GIÁ (TRÊN TẬP TEST - {len(processed_images)} ẢNH):")
     for metric, val in final_scores.items():
         print(f"{metric:<10}: {val:.4f}")
     print("="*40)
 
 if __name__ == "__main__":
-    CHECKPOINT = "Checkpoints/epoch_10.pt"
-    DATA_DIR = "data"
-    run_evaluation(CHECKPOINT, DATA_DIR)
+    run_evaluation(os.path.join(config.CHECKPOINT_DIR, "epoch_9.pt"), config.DATA_DIR)

@@ -1,5 +1,6 @@
 import os
 import random
+import json
 import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -14,15 +15,17 @@ def get_loaders(
     captions_file=None,
     vocab=None,
     batch_size=32,
-    val_split=0.2,
+    train_split=0.7,
+    val_split=0.15,
+    test_split=0.15,
     seed=42,
     freq_threshold=5,
     num_workers=2,
     transform=None
 ):
     """
-    Hàm chuẩn để lấy DataLoaders mà không bị rò rỉ dữ liệu (Data Leakage).
-    Chia dữ liệu theo Image ID thay vì chia theo từng caption.
+    Hàm chuẩn để lấy DataLoaders với 3 tập: Train, Val, Test.
+    Chia dữ liệu theo Image ID để tránh rò rỉ thông tin.
     """
     if image_dir is None:
         image_dir = os.path.join(data_dir, "Images")
@@ -31,37 +34,65 @@ def get_loaders(
 
     # 1. Load data
     captions_dict = load_captions(captions_file)
-    # captions_dict = filter_valid_images(image_dir, captions_dict) # Bật nếu muốn lọc ảnh lỗi
 
-    # 2. Chia theo Image ID (Fix Image-level leakage)
-    all_image_names = list(captions_dict.keys())
-    random.seed(seed)
-    random.shuffle(all_image_names)
+    # 2. Chia theo Image ID
+    all_image_names = sorted(list(captions_dict.keys())) # Sắp xếp để đảm bảo thứ tự ban đầu cố định
+    
+    split_file = os.path.join(data_dir, f"splits_seed_{seed}.json")
+    if os.path.exists(split_file):
+        print(f"Loading existing splits from {split_file}")
+        with open(split_file, "r") as f:
+            splits = json.load(f)
+        train_names = set(splits["train"])
+        val_names = set(splits["val"])
+        test_names = set(splits["test"])
+    else:
+        print(f"Creating new splits with seed {seed}...")
+        random.seed(seed)
+        random.shuffle(all_image_names)
 
-    val_size = int(len(all_image_names) * val_split)
-    val_names = set(all_image_names[:val_size])
-    train_names = set(all_image_names[val_size:])
+        num_images = len(all_image_names)
+        train_end = int(num_images * train_split)
+        val_end = train_end + int(num_images * val_split)
 
-    # 3. Phẳng hóa dữ liệu cho từng tập
+        train_names_list = all_image_names[:train_end]
+        val_names_list = all_image_names[train_end:val_end]
+        test_names_list = all_image_names[val_end:]
+        
+        # Lưu lại để lần sau dùng đúng tập này
+        with open(split_file, "w") as f:
+            json.dump({
+                "train": train_names_list,
+                "val": val_names_list,
+                "test": test_names_list
+            }, f)
+            
+        train_names = set(train_names_list)
+        val_names = set(val_names_list)
+        test_names = set(test_names_list)
+
+    # 3. Phẳng hóa dữ liệu
     train_img_paths, train_caps = [], []
     val_img_paths, val_caps = [], []
+    test_img_paths, test_caps = [], []
 
     for img_name, caps in captions_dict.items():
+        path = os.path.join(image_dir, img_name)
         for c in caps:
-            # Lưu ý: c lúc này đã có thể chứa <start> <end> tùy vào preprocessing.py
-            # Thầy khuyên nên để nguyên bản và xử lý token trong Dataset class.
-            path = os.path.join(image_dir, img_name)
             if img_name in train_names:
                 train_img_paths.append(path)
                 train_caps.append(c)
-            else:
+            elif img_name in val_names:
                 val_img_paths.append(path)
                 val_caps.append(c)
+            else:
+                test_img_paths.append(path)
+                test_caps.append(c)
 
-    # 4. Tạo hoặc Build Vocab
+    # 4. Build Vocab
     if vocab is None:
         vocab = Vocabulary(freq_threshold=freq_threshold)
-        vocab.build_vocab(train_caps) # Chỉ build vocab dựa trên tập Train!
+        vocab.build_vocab(train_caps)
 
     # 5. Transforms
     if transform is None:
@@ -74,24 +105,15 @@ def get_loaders(
     # 6. Datasets
     train_dataset = FlickrDataset(train_img_paths, train_caps, vocab, transform=transform)
     val_dataset = FlickrDataset(val_img_paths, val_caps, vocab, transform=transform)
+    test_dataset = FlickrDataset(test_img_paths, test_caps, vocab, transform=transform)
 
     # 7. Loaders
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers,
-        collate_fn=collate_fn,
-        pin_memory=torch.cuda.is_available()
-    )
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, 
+                              num_workers=num_workers, collate_fn=collate_fn)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, 
+                            num_workers=num_workers, collate_fn=collate_fn)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, 
+                             num_workers=num_workers, collate_fn=collate_fn)
 
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        collate_fn=collate_fn,
-        pin_memory=torch.cuda.is_available()
-    )
-
-    return train_loader, val_loader, vocab, len(all_image_names), len(train_names), len(val_names), list(train_caps) + list(val_caps)
+    return (train_loader, val_loader, test_loader), vocab, \
+           (len(train_names), len(val_names), len(test_names))
