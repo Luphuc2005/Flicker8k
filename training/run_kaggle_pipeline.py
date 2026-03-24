@@ -21,6 +21,7 @@ from datasets.dataset import FlickrDataset
 from datasets.preprocessing import filter_valid_images, flatten_data, load_captions
 from datasets.vocab import Vocabulary
 from models.caption_model import CaptionModel
+from datasets.data_loader import get_loaders # Thêm dòn này
 from models.cnn_encoder import CNNEncoder
 from models.transformer_decoder import TransformerDecoder
 from models.transformer_encoder import TransformerEncoder
@@ -166,53 +167,20 @@ def main():
 
     image_dir, captions_file = resolve_data_paths(args.data_dir, args.image_dir, args.captions_file)
 
-    captions_dict = load_captions(captions_file)
-    captions_dict = filter_valid_images(image_dir, captions_dict)
-    image_paths, captions = flatten_data(image_dir, captions_dict)
-
-    vocab = Vocabulary(freq_threshold=args.freq_threshold)
-    vocab.build_vocab(captions)
-
-    transform = transforms.Compose(
-        [
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225],
-            ),
-        ]
-    )
-
-    dataset = FlickrDataset(image_paths, captions, vocab, transform=transform)
-    val_size = int(args.val_split * len(dataset))
-    train_size = len(dataset) - val_size
-    train_dataset, val_dataset = torch.utils.data.random_split(
-        dataset,
-        [train_size, val_size],
-        generator=torch.Generator().manual_seed(args.seed),
-    )
-
-    train_loader = DataLoader(
-        train_dataset,
+    # SỬ DỤNG HÀM GET_LOADERS ĐÃ CHUẨN HÓA
+    train_loader, val_loader, vocab, dataset_size, train_size, val_size, all_captions = get_loaders(
+        data_dir=args.data_dir,
+        image_dir=image_dir, # Pass resolved image_dir
+        captions_file=captions_file, # Pass resolved captions_file
         batch_size=args.batch_size,
-        shuffle=True,
-        collate_fn=collate_fn,
-        num_workers=args.num_workers,
-        pin_memory=torch.cuda.is_available(),
-    )
-
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=args.batch_size,
-        shuffle=False,
-        collate_fn=collate_fn,
-        num_workers=args.num_workers,
-        pin_memory=torch.cuda.is_available(),
+        val_split=args.val_split,
+        seed=args.seed,
+        freq_threshold=args.freq_threshold,
+        num_workers=args.num_workers
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    max_len = max(len(vocab.numericalize(c)) + 2 for c in captions)
+    max_len = max(len(vocab.numericalize(c)) + 2 for c in all_captions)
 
     encoder = CNNEncoder(embed_dim=args.embed_dim)
     trans_enc = TransformerEncoder(embed_dim=args.embed_dim, num_heads=args.num_head)
@@ -225,9 +193,9 @@ def main():
     )
     model = CaptionModel(encoder, trans_enc, decoder).to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    criterion = get_loss()
-    scheduler = get_scheduler(optimizer)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr) #cập nhật weight
+    criterion = get_loss() #tính loss
+    scheduler = get_scheduler(optimizer) #giảm lr
 
     config = {
         "epochs": args.epochs,

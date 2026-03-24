@@ -15,3 +15,6 @@ training/wandb/
 # 5. File tạm của Python và Notebook
 __pycache__/
 .ipynb_checkpoints/
+
+# 6. File Checkpoints
+Checkpoints/

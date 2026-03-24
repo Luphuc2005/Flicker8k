@@ -27,9 +27,7 @@ def load_captions(captions_file):
                 continue
 
             img = img.strip()
-            cap=cap.lower().strip()
-            #strip(): Hàm này dùng để loại bỏ tất cả các ký tự khoảng trắng (bao gồm dấu cách, tab, và ký tự xuống dòng \n) ở hai đầu (đầu và cuối) của một chuỗi. Nó không tác động đến khoảng trắng ở giữa chuỗi.
-            cap="<start> " + cap +" <end>"
+            cap = cap.lower().strip()
             if img not in captions_dict:
                 captions_dict[img]=[] #nếu ảnh đã xuất hiện -> tạo 1 ds trống cho nó
             captions_dict[img].append(cap)  # thêm câu mô tả vào ds của ảnh tương ứng
