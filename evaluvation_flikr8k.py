@@ -27,6 +27,7 @@ def run_evaluation(checkpoint_path, data_dir):
     print("Đang chuẩn bị dữ liệu tập Test (70/15/15 split)...")
     (train_loader, val_loader, test_loader), _, (n_train, n_val, n_test) = get_loaders(
         data_dir,
+        split_dir=config.SPLIT_DIR,
         train_split=config.TRAIN_SPLIT,
         val_split=config.VAL_SPLIT,
         test_split=config.TEST_SPLIT,

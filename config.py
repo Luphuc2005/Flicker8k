@@ -9,7 +9,8 @@ class Config:
     CHECKPOINT_DIR = "Checkpoints"
     
     # --- DATA SPLIT ---
-    # Tổng cộng should be 1.0 (70% Train, 15% Val, 15% Test)
+    # Tập Test sẽ được lưu ở đây để tránh lỗi Read-only trên Kaggle
+    SPLIT_DIR = "." # Mặc định lưu ở thư mục gốc của repo
     TRAIN_SPLIT = 0.7
     VAL_SPLIT = 0.15
     TEST_SPLIT = 0.15

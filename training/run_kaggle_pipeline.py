@@ -170,6 +170,7 @@ def main():
     # SỬ DỤNG HÀM GET_LOADERS ĐÃ CHUẨN HÓA
     (train_loader, val_loader, test_loader), vocab, (train_size, val_size, test_size) = get_loaders(
         data_dir=args.data_dir,
+        split_dir=args.output_dir, # Lưu split file ở nơi có quyền ghi
         image_dir=image_dir,
         captions_file=captions_file,
         batch_size=args.batch_size,

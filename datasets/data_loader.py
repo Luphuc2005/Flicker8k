@@ -11,6 +11,7 @@ from .vocab import Vocabulary
 
 def get_loaders(
     data_dir,
+    split_dir=None,
     image_dir=None,
     captions_file=None,
     vocab=None,
@@ -36,9 +37,13 @@ def get_loaders(
     captions_dict = load_captions(captions_file)
 
     # 2. Chia theo Image ID
-    all_image_names = sorted(list(captions_dict.keys())) # Sắp xếp để đảm bảo thứ tự ban đầu cố định
+    all_image_names = sorted(list(captions_dict.keys()))
     
-    split_file = os.path.join(data_dir, f"splits_seed_{seed}.json")
+    # Nếu không có split_dir thì lưu mặc định ở data_dir
+    if split_dir is None:
+        split_dir = data_dir
+        
+    split_file = os.path.join(split_dir, f"splits_seed_{seed}.json")
     if os.path.exists(split_file):
         print(f"Loading existing splits from {split_file}")
         with open(split_file, "r") as f:
