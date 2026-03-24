@@ -206,7 +206,7 @@ def main():
     criterion = get_loss() #tính loss
     scheduler = get_scheduler(optimizer) #giảm lr
 
-    config = {
+    run_config = {
         "epochs": args.epochs,
         "batch_size": args.batch_size,
         "lr": args.lr,
@@ -233,11 +233,11 @@ def main():
 
     config_path = output_dir / "train_config.json"
     with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(config, f, indent=2)
+        json.dump(run_config, f, indent=2)
 
     resolved_config_path = config_out_dir / f"run_config_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     with open(resolved_config_path, "w", encoding="utf-8") as f:
-        json.dump(config, f, indent=2)
+        json.dump(run_config, f, indent=2)
 
     resume_path = get_resume_path(args.resume, str(checkpoint_dir))
     use_wandb = args.wandb_mode != "disabled"
@@ -252,7 +252,7 @@ def main():
         scheduler=scheduler,
         device=device,
         epochs=args.epochs,
-        config=config,
+        config=run_config,
         checkpoint_dir=str(checkpoint_dir),
         resume_path=resume_path,
         use_wandb=use_wandb,
