@@ -10,6 +10,8 @@ from .vocab import Vocabulary
 
 def get_loaders(
     data_dir,
+    image_dir=None,
+    captions_file=None,
     vocab=None,
     batch_size=32,
     val_split=0.2,
@@ -22,8 +24,10 @@ def get_loaders(
     Hàm chuẩn để lấy DataLoaders mà không bị rò rỉ dữ liệu (Data Leakage).
     Chia dữ liệu theo Image ID thay vì chia theo từng caption.
     """
-    image_dir = os.path.join(data_dir, "Images")
-    captions_file = os.path.join(data_dir, "captions.txt")
+    if image_dir is None:
+        image_dir = os.path.join(data_dir, "Images")
+    if captions_file is None:
+        captions_file = os.path.join(data_dir, "captions.txt")
 
     # 1. Load data
     captions_dict = load_captions(captions_file)
