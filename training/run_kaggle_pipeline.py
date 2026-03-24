@@ -21,7 +21,8 @@ from datasets.dataset import FlickrDataset
 from datasets.preprocessing import filter_valid_images, flatten_data, load_captions
 from datasets.vocab import Vocabulary
 from models.caption_model import CaptionModel
-from datasets.data_loader import get_loaders # Thêm dòn này
+from config import config
+from datasets.data_loader import get_loaders # Thêm dòng này
 from models.cnn_encoder import CNNEncoder
 from models.transformer_decoder import TransformerDecoder
 from models.transformer_encoder import TransformerEncoder
@@ -114,16 +115,17 @@ def _build_parser(config_defaults: dict):
     parser.add_argument("--captions-file", type=str, default=_cfg_get(config_defaults, "captions_file", ""), help="Duong dan captions.txt")
     parser.add_argument("--output-dir", type=str, default=_cfg_get(config_defaults, "output_dir", "/kaggle/working/outputs"))
     parser.add_argument("--config-out-dir", type=str, default=_cfg_get(config_defaults, "config_out_dir", ""), help="Thu muc luu config da resolve cho moi run")
-    parser.add_argument("--epochs", type=int, default=_cfg_get(config_defaults, "epochs", 10))
-    parser.add_argument("--batch-size", type=int, default=_cfg_get(config_defaults, "batch_size", 32))
-    parser.add_argument("--lr", type=float, default=_cfg_get(config_defaults, "lr", 1e-4))
-    parser.add_argument("--embed-dim", type=int, default=_cfg_get(config_defaults, "embed_dim", 512))
-    parser.add_argument("--num-head", type=int, default=_cfg_get(config_defaults, "num_head", 2))
-    parser.add_argument("--ff-dim", type=int, default=_cfg_get(config_defaults, "ff_dim", 512))
+    parser.add_argument("--epochs", type=int, default=_cfg_get(config_defaults, "epochs", config.EPOCHS))
+    parser.add_argument("--batch-size", type=int, default=_cfg_get(config_defaults, "batch_size", config.BATCH_SIZE))
+    parser.add_argument("--lr", type=float, default=_cfg_get(config_defaults, "lr", config.LEARNING_RATE))
+    parser.add_argument("--embed-dim", type=int, default=_cfg_get(config_defaults, "embed_dim", config.EMBED_DIM))
+    parser.add_argument("--num-head", type=int, default=_cfg_get(config_defaults, "num_head", config.NUM_HEADS))
+    parser.add_argument("--ff-dim", type=int, default=_cfg_get(config_defaults, "ff_dim", config.FF_DIM))
     parser.add_argument("--freq-threshold", type=int, default=_cfg_get(config_defaults, "freq_threshold", 5))
-    parser.add_argument("--val-split", type=float, default=_cfg_get(config_defaults, "val_split", 0.2))
-    parser.add_argument("--num-workers", type=int, default=_cfg_get(config_defaults, "num_workers", 2))
-    parser.add_argument("--seed", type=int, default=_cfg_get(config_defaults, "seed", 42))
+    parser.add_argument("--val-split", type=float, default=_cfg_get(config_defaults, "val_split", config.VAL_SPLIT))
+    parser.add_argument("--num-workers", type=int, default=_cfg_get(config_defaults, "num_workers", config.NUM_WORKERS))
+    parser.add_argument("--seed", type=int, default=_cfg_get(config_defaults, "seed", config.SEED))
+    parser.add_argument("--eval-limit", type=int, default=_cfg_get(config_defaults, "eval_limit", 100), help="So luong anh val dung de tinh metrics (de nhanh)")
     parser.add_argument("--resume", type=str, default=_cfg_get(config_defaults, "resume", "latest"), help="latest | none | /path/to/ckpt.pt")
     parser.add_argument("--wandb-mode", type=str, default=_cfg_get(config_defaults, "wandb_mode", "offline"), choices=["offline", "online", "disabled"])
     parser.add_argument("--wandb-project", type=str, default=_cfg_get(config_defaults, "wandb_project", "image-captioning"))
@@ -174,9 +176,9 @@ def main():
         image_dir=image_dir,
         captions_file=captions_file,
         batch_size=args.batch_size,
-        train_split=0.7, # Có thể đưa vào args nếu muốn
+        train_split=config.TRAIN_SPLIT,
         val_split=args.val_split,
-        test_split=0.15,
+        test_split=config.TEST_SPLIT,
         seed=args.seed,
         freq_threshold=args.freq_threshold,
         num_workers=args.num_workers
@@ -261,6 +263,9 @@ def main():
         log_images=args.log_images,
         upload_checkpoints_to_wandb=args.upload_checkpoints,
         metrics_csv_path=str(output_dir / "metrics.csv"),
+        val_image_paths=sorted(list(set(val_loader.dataset.image_paths))),
+        val_captions_dict=all_captions_dict,
+        eval_limit=args.eval_limit,
     )
 
     with open(output_dir / "history.json", "w", encoding="utf-8") as f:

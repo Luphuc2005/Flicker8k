@@ -10,7 +10,7 @@ import cv2
 from config import config
 from inference import load_model_and_vocab, greedy_decode
 
-def plot_attention(image_path, words, attention_weights, save_path=None):
+def plot_attention(image_path, words, attention_weights, save_path=None, ground_truth=None):
     """
     Vẽ ảnh gốc và bản đồ nhiệt Attention cho từng từ.
     words: list các từ đã dự đoán.
@@ -43,12 +43,17 @@ def plot_attention(image_path, words, attention_weights, save_path=None):
         plt.axis('off')
         
     plt.tight_layout()
+    if ground_truth:
+        gt_text = "Ground Truth:\n" + "\n".join([f"- {gt}" for gt in ground_truth])
+        plt.figtext(0.01, 0.01, gt_text, fontsize=10, verticalalignment='bottom', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+        plt.subplots_adjust(bottom=0.2) # Chừa khoảng trống cho ground truth text
+
     if save_path:
-        plt.savefig(save_path)
+        plt.savefig(save_path, bbox_inches='tight')
         print(f"XAI result saved to: {save_path}")
     plt.show()
 
-def run_xai_example(image_path):
+def run_xai_example(image_path, ground_truth=None):
     device = config.DEVICE
     checkpoint_path = os.path.join(config.CHECKPOINT_DIR, "epoch_9.pt")
     data_dir = config.DATA_DIR
@@ -65,6 +70,11 @@ def run_xai_example(image_path):
     img_tensor = transform(img_pil).unsqueeze(0).to(device)
     
     print(f"Bắt đầu phân tích XAI cho ảnh: {image_path}")
+    if ground_truth:
+        print("Ground Truth Captions:")
+        for i, gt in enumerate(ground_truth):
+            print(f"  {i+1}. {gt}")
+
     caption, attention_weights = greedy_decode(model, img_tensor, vocab, device=device, return_attention=True)
     
     print(f"Dự đoán: {caption}")
@@ -73,7 +83,7 @@ def run_xai_example(image_path):
     save_name = f"xai_{os.path.basename(image_path).split('.')[0]}.png"
     save_path = os.path.join(config.EVAL_RESULTS_DIR, save_name)
     
-    plot_attention(image_path, words, attention_weights, save_path=save_path)
+    plot_attention(image_path, words, attention_weights, save_path=save_path, ground_truth=ground_truth)
 
 if __name__ == "__main__":
     # Thay bằng path ảnh thực tế trong folder Images của em
@@ -83,5 +93,6 @@ if __name__ == "__main__":
     captions = load_captions(os.path.join(config.DATA_DIR, "captions.txt"))
     test_img = random.choice(list(captions.keys()))
     image_path = os.path.join(config.DATA_DIR, "Images", test_img)
+    gt_caps = captions[test_img]
     
-    run_xai_example(image_path)
+    run_xai_example(image_path, ground_truth=gt_caps)

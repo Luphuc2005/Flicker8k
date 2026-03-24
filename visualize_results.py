@@ -69,8 +69,10 @@ def visualize_test_results(num_samples=5, save_to_dir=None):
         # Plot
         plt.subplot(len(samples), 1, i + 1)
         plt.imshow(img_pil)
-        title = f"GT: {gt_captions[0]}\nPRED: {pred_caption}"
-        plt.title(title, fontsize=12, loc='left')
+        
+        gt_text = "\n".join([f"GT {j+1}: {cap}" for j, cap in enumerate(gt_captions)])
+        title = f"{gt_text}\nPRED: {pred_caption}"
+        plt.title(title, fontsize=10, loc='left')
         plt.axis('off')
 
     plt.tight_layout()

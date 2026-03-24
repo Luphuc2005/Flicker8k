@@ -2,6 +2,7 @@ import os
 import csv
 import torch
 import wandb
+from evaluation.evaluator import evaluate_model
 
 # WandB service in notebook/Windows may need longer startup time.
 os.environ.setdefault("WANDB__SERVICE_WAIT", "120")
@@ -136,6 +137,9 @@ def train_model(
     log_images=True,
     upload_checkpoints_to_wandb=True,
     metrics_csv_path=None,
+    val_image_paths=None,
+    val_captions_dict=None,
+    eval_limit=None,
 ):
     start_epoch = 0
     if resume_path:
@@ -194,16 +198,33 @@ def train_model(
             model, val_loader, criterion, device
         ) if val_loader else 0
 
+        # --- EVALUATE METRICS ---
+        val_metrics = {}
+        if val_image_paths and val_captions_dict:
+            val_metrics = evaluate_model(
+                model=model,
+                vocab=train_loader.dataset.vocab,
+                device=device,
+                image_paths=val_image_paths,
+                captions_dict=val_captions_dict,
+                limit=eval_limit
+            )
+
         if scheduler:
             scheduler.step()
 
         if run is not None:
-            wandb.log({
+            wandb_log_dict = {
                 "epoch": epoch,
                 "train_loss": train_loss,
                 "val_loss": val_loss,
                 "lr": optimizer.param_groups[0]["lr"],
-            }, step=epoch)
+            }
+            # Thêm các metric vào WandB log
+            for m, v in val_metrics.items():
+                wandb_log_dict[f"val/{m}"] = v
+                
+            wandb.log(wandb_log_dict, step=epoch)
 
             if log_images:
                 source_loader = val_loader if val_loader else train_loader
@@ -214,6 +235,8 @@ def train_model(
             f"Train Loss = {train_loss:.4f}, "
             f"Val Loss = {val_loss:.4f}"
         )
+        if val_metrics:
+            print(f"Metrics: BLEU-4 = {val_metrics.get('Bleu_4', 0):.4f}, CIDEr = {val_metrics.get('CIDEr', 0):.4f}")
 
         metrics = {
             "epoch": epoch + 1,
@@ -221,6 +244,10 @@ def train_model(
             "val_loss": float(val_loss),
             "lr": float(optimizer.param_groups[0]["lr"]),
         }
+        # Lưu metric vào history
+        for m, v in val_metrics.items():
+            metrics[m] = float(v)
+            
         history.append(metrics)
 
         ckpt_path = os.path.join(checkpoint_dir, f"epoch_{epoch+1}.pt")
@@ -237,7 +264,7 @@ def train_model(
             write_header = not os.path.exists(metrics_csv_path)
             with open(metrics_csv_path, "a", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(
-                    f, fieldnames=["epoch", "train_loss", "val_loss", "lr"]
+                    f, fieldnames=["epoch", "train_loss", "val_loss", "lr"] + list(val_metrics.keys())
                 )
                 if write_header:
                     writer.writeheader()
