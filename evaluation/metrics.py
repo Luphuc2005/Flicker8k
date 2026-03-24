@@ -27,11 +27,19 @@ def calculate_metrics(gts, res):
 
     final_scores = {}
     for scorer, method in scorers:
-        score, _ = scorer.compute_score(gts, res)
-        if isinstance(method, list):
-            for s, m in zip(score, method):
-                final_scores[m] = s
-        else:
-            final_scores[method] = score
+        try:
+            score, _ = scorer.compute_score(gts, res)
+            if isinstance(method, list):
+                for s, m in zip(score, method):
+                    final_scores[m] = s
+            else:
+                final_scores[method] = score
+        except Exception as e:
+            print(f"Warning: Could not compute {method}: {e}")
+            if isinstance(method, list):
+                for m in method:
+                    final_scores[m] = 0.0
+            else:
+                final_scores[method] = 0.0
             
     return final_scores
