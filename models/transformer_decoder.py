@@ -18,30 +18,24 @@ class TransformerDecoder(nn.Module):
         )
         self.out=nn.Linear(embed_dim,vocab_size)
         #: Lớp cuối cùng để biến các vector 512 chiều thành xác suất của các từ trong từ điển (ví dụ: xác suất từ "Cat" là 0.8, "Dog" là 0.1).
-    def forward(self,x,encoder_out):
-        x=self.embedding(x) # co duoc vi tri
-    #causal mask
-        T=x.size(1)
-        mask=torch.triu(torch.ones(T,T),diagonal=1).bool().to(x.device) #he đi (mask) những từ ở tương lai. Khi tính Attention, mô hình chỉ được "nhìn" về các từ đã viết phía trước.
-        #self attention
-        attn_out,_=self.self_att(x,x,x,attn_mask=mask) #
-        x=self.norm1(x+attn_out)
-#Mô hình xem xét mối quan hệ giữa các từ đã viết. Ví dụ: Nếu đã viết "The patient has...", từ tiếp theo khả năng cao liên quan đến bệnh lý.
+    def forward(self, x, encoder_out, return_attention=False):
+        x = self.embedding(x)
+        # causal mask
+        T = x.size(1)
+        mask = torch.triu(torch.ones(T, T), diagonal=1).bool().to(x.device)
+        # self attention
+        attn_out, _ = self.self_att(x, x, x, attn_mask=mask)
+        x = self.norm1(x + attn_out)
 
-        #cross attention
-        attn_out,_=self.cross_att(x,encoder_out,encoder_out)
-        x=self.norm2(x+attn_out)
-#         Đây là lúc Decoder kết nối với Encoder:
+        # cross attention
+        attn_out, attn_weights = self.cross_att(x, encoder_out, encoder_out, average_attn_weights=False)
+        x = self.norm2(x + attn_out)
 
-# Query (Q): Đến từ x (những gì Decoder đang viết).
-
-# Key (K) & Value (V): Đến từ encoder_out (thông tin hình ảnh từ Encoder).
-
-# Tư duy: "Tôi đang viết đến đoạn mô tả phổi (Q), hãy cho tôi biết vùng phổi trong ảnh (K, V) có đặc điểm gì?".
-
-        #feedforward
-        ff_out=self.ff(x)
-        x=self.norm3(x+ff_out)
-        #Sau khi đã tổng hợp cả thông tin câu chữ và thông tin hình ảnh, dữ liệu đi qua lớp FeedForward để "chốt" lại kiến thức, sau đó lớp out sẽ dự đoán từ tiếp theo.
-        return self.out(x)
-    
+        # feedforward
+        ff_out = self.ff(x)
+        x = self.norm3(x + ff_out)
+        
+        logits = self.out(x)
+        if return_attention:
+            return logits, attn_weights
+        return logits

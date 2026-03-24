@@ -7,8 +7,7 @@ class CaptionModel(nn.Module):
         self.encoder=encoder
         self.transformer_encoder=transformer_encoder
         self.decoder=decoder
-    def forward(self,images,captions):
-        features=self.encoder(images)
-        features=self.transformer_encoder(features)
-        outputs=self.decoder(captions,features)
-        return outputs
+    def forward(self, images, captions, return_attention=False):
+        features = self.encoder(images)
+        features = self.transformer_encoder(features)
+        return self.decoder(captions, features, return_attention=return_attention)

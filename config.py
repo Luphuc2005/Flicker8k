@@ -9,12 +9,15 @@ class Config:
     CHECKPOINT_DIR = "Checkpoints"
     
     # --- DATA SPLIT ---
-    # Tập Test sẽ được lưu ở đây để tránh lỗi Read-only trên Kaggle
-    SPLIT_DIR = "." # Mặc định lưu ở thư mục gốc của repo
+    # Thư mục lưu trữ các file phân chia dữ liệu (.json)
+    SPLIT_DIR = "data_splits" 
     TRAIN_SPLIT = 0.7
     VAL_SPLIT = 0.15
     TEST_SPLIT = 0.15
     SEED = 42
+
+    # --- EVALUATION ---
+    EVAL_RESULTS_DIR = "evaluation_results"
     
     # --- DATALOADER ---
     BATCH_SIZE = 32

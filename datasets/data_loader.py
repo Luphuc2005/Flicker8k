@@ -42,7 +42,8 @@ def get_loaders(
     # Nếu không có split_dir thì lưu mặc định ở data_dir
     if split_dir is None:
         split_dir = data_dir
-        
+    
+    os.makedirs(split_dir, exist_ok=True)
     split_file = os.path.join(split_dir, f"splits_seed_{seed}.json")
     if os.path.exists(split_file):
         print(f"Loading existing splits from {split_file}")

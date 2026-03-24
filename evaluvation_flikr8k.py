@@ -1,4 +1,5 @@
 import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 import torch
 from tqdm import tqdm
 from PIL import Image
@@ -56,7 +57,7 @@ def run_evaluation(checkpoint_path, data_dir):
     
     with torch.no_grad():
         for i in tqdm(range(len(test_dataset))):
-            img_path, _ = test_dataset.img_paths[i], test_dataset.captions[i]
+            img_path = test_dataset.image_paths[i]
             img_name = os.path.basename(img_path)
             
             if img_name in processed_images:
