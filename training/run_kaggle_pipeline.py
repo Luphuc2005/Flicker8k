@@ -208,7 +208,7 @@ def main():
         "val_split": args.val_split,
         "seed": args.seed,
         "max_len": int(max_len),
-        "dataset_size": len(dataset),
+        "dataset_size": dataset_size,
         "train_size": train_size,
         "val_size": val_size,
         "device": str(device),
